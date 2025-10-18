@@ -10,4 +10,4 @@ env/
 
 # IDE/editor files
 .vscode/
-../.idea/
+.idea/
