@@ -76,7 +76,7 @@ In the final version:
     pip install -r requirements.txt 
   ```
 
-1. Download and Install Tesseract-OCR
+### Download and Install Tesseract-OCR
 
 Tesseract is required for license plate recognition in car_plate.py.
 
@@ -84,6 +84,9 @@ Tesseract is required for license plate recognition in car_plate.py.
 Go to the official Tesseract GitHub release page: https://github.com/UB-Mannheim/tesseract/wiki
 Download the Windows installer (tesseract-ocr-setup.exe) from the releases section.
 Run the installer and complete the installation process.
+
+<img width="1351" height="418" alt="image" src="https://github.com/user-attachments/assets/94b284be-75e8-4879-818a-b9e20f98ea61" />
+
 
 #### For macOS:
 ```bash
@@ -168,5 +171,13 @@ CLICK on existing space to REMOVE it
 Press 's' to SAVE and 'q' to QUIT setup
 ================================
 ```
+**Set up mode**
+<img width="2367" height="1335" alt="image" src="https://github.com/user-attachments/assets/5c48d7e4-6d60-4307-a41b-70c5935fd0ea" />
+
+After you finish the setup click "s" to save and "q" to quit the set up mode then the two windos may appear one with the mask that uses edge detection and background substraction and the second may obser below:
+**Mask**
+<img width="2542" height="1380" alt="image" src="https://github.com/user-attachments/assets/14f497f4-93e4-45e1-a0b4-61fdf635605d" />
+**Result**
+<img width="2407" height="1319" alt="image" src="https://github.com/user-attachments/assets/9acda549-757f-448f-81d1-8025f0ff47c9" />
 
 
