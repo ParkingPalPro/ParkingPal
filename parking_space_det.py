@@ -84,7 +84,7 @@ class ParkingSpaceDetector:
         print("\n=== Parking Space Setup Mode ===")
         print("LEFT CLICK to add points (4 points per space)")
         print("Points should be in order: top-left, top-right, bottom-right, bottom-left")
-        print("RIGHT CLICK to cancel current drawing")
+        print("Left CLICK to cancel current drawing")
         print("CLICK on existing space to REMOVE it")
         print("Press 's' to SAVE and 'q' to QUIT setup")
         print("================================\n")
@@ -376,11 +376,10 @@ class ParkingSpaceDetector:
         cv2.destroyAllWindows()
 
 
-# Example usage
 if __name__ == "__main__":
     cv2.setNumThreads(16)
     # For video file
-    detector = ParkingSpaceDetector('easy1.mp4')
+    detector = ParkingSpaceDetector('./videos/easy.mp4')
 
     # For webcam
     #detector = ParkingSpaceDetector(0)
@@ -390,6 +389,3 @@ if __name__ == "__main__":
 
     # Run with setup mode first time
     detector.run(setup_mode=True)
-
-    # Subsequent runs
-    # detector.run(setup_mode=False)
