@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ParkingPal{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #fafafa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Flash Messages */
+        .flash-messages {
+            position: fixed;
+            top: 80px;
+            right: 30px;
+            z-index: 1000;
+            max-width: 380px;
+        }
+
+        .flash {
+            padding: 16px 24px;
+            margin-bottom: 12px;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.95em;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            animation: slideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .flash.success { background: #4CAF50; }
+        .flash.error { background: #f44336; }
+        .flash.warning { background: #FF9800; }
+        .flash.info { background: #2196F3; }
+
+        /* Navigation */
+        nav {
+            background: white;
+            padding: 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            color: #FF9800;
+            font-size: 1.5em;
+            font-weight: 700;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-links a {
+            color: #333;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-weight: 500;
+            font-size: 0.95em;
+        }
+
+        .nav-links a:hover {
+            background: #f5f5f5;
+        }
+
+        .nav-links a.btn-primary {
+            background: #2196F3;
+            color: white;
+        }
+
+        .nav-links a.btn-primary:hover {
+            background: #1976D2;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+        }
+
+        /* Main Content */
+        .container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+        }
+
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <span>ParkingPal</span>
+            </a>
+            <div class="nav-links">
+                {% if session.user_id %}
+                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('logout') }}" class="btn-primary">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}">Login</a>
+                    <a href="{{ url_for('register') }}" class="btn-primary">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        setTimeout(() => {
+            const flashMessages = document.querySelectorAll('.flash');
+            flashMessages.forEach(msg => {
+                msg.style.transition = 'all 0.4s ease';
+                msg.style.transform = 'translateX(400px)';
+                msg.style.opacity = '0';
+            });
+        }, 4000);
+    </script>
+</body>
+</html>
