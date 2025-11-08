@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Register - ParkingPal{% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-card {
+        background: white;
+        border-radius: 20px;
+        padding: 48px 40px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+        width: 100%;
+        max-width: 420px;
+    }
+
+    .logo-section {
+        text-align: center;
+        margin-bottom: 32px;
+    }
+
+    .logo-section .icon {
+        font-size: 3.5em;
+        margin-bottom: 16px;
+    }
+
+    .auth-card h2 {
+        color: #1a1a1a;
+        font-size: 1.75em;
+        font-weight: 600;
+        text-align: center;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 32px;
+        font-size: 0.95em;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #333;
+        font-weight: 500;
+        font-size: 0.9em;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 14px 16px;
+        border: 2px solid #e8e8e8;
+        border-radius: 10px;
+        font-size: 0.95em;
+        transition: all 0.2s;
+        background: #fafafa;
+    }
+
+    .form-group input:focus {
+        outline: none;
+        border-color: #2196F3;
+        background: white;
+        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+    }
+
+    .btn {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 1em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-top: 8px;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(255, 152, 0, 0.3);
+    }
+
+    .btn:active {
+        transform: translateY(0);
+    }
+
+    .link-text {
+        text-align: center;
+        color: #666;
+        margin-top: 24px;
+        font-size: 0.9em;
+    }
+
+    .link-text a {
+        color: #2196F3;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .link-text a:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    <div class="logo-section">
+        <div class="icon">🅿️</div>
+    </div>
+    <h2>Get Started</h2>
+    <p class="subtitle">Create your account</p>
+
+    <form method="POST" action="{{ url_for('register') }}">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input
+                type="text"
+                id="username"
+                name="username"
+                placeholder="Choose a username"
+                required
+                minlength="3"
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="your@email.com"
+                required
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="At least 6 characters"
+                required
+                minlength="6"
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="confirm_password">Confirm Password</label>
+            <input
+                type="password"
+                id="confirm_password"
+                name="confirm_password"
+                placeholder="Re-enter password"
+                required
+                minlength="6"
+            >
+        </div>
+
+        <button type="submit" class="btn">Create Account</button>
+    </form>
+
+    <div class="link-text">
+        Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
+    </div>
+</div>
+{% endblock %}
