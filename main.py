@@ -25,7 +25,8 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_admin BOOLEAN NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS cars (
@@ -52,8 +53,12 @@ def init_db():
         );
     ''')
     conn.commit()
-    conn.close()
     print("Database initialized")
+    admin = conn.execute("SELECT * FROM users WHERE username = 'admin'")
+    if not admin.fetchall():
+        conn.execute("INSERT INTO users (username, email, password, is_admin) VALUES (?, ?, ?, ?)", ('admin', "admin@admin.no", hash_password("Password1."),  1))
+        conn.commit()
+        conn.close()
 
 
 def hash_password(password):
@@ -69,6 +74,32 @@ def login_required(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please login to access this page', 'warning')
+            return redirect(url_for('login'))
+
+        user = session.get('user_id')
+        if user is None:
+            flash('Please login to access this page', 'warning')
+            return redirect(url_for('login'))
+
+        conn = get_db_connection()
+        is_admin = conn.execute("SELECT is_admin FROM users where id = ?", (user,)).fetchone()
+        conn.commit()
+        conn.close()
+
+        if not is_admin:
+            flash('You do not have access to this page. Forbidden', 'warning')
+            return redirect(url_for('login'))
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 
 
 # ============= API ENDPOINTS FOR CAMERA =============
@@ -315,6 +346,11 @@ def logout():
     flash(f'Goodbye, {username}! You have been logged out.', 'info')
     return redirect(url_for('login'))
 
+@app.route('/admin')
+@admin_required
+def admin():
+    username = session.get('username')
+    return render_template('admin.html', username=username)
 
 if __name__ == '__main__':
     init_db()
