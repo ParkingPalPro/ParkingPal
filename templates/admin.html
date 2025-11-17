@@ -1,13 +1,476 @@
 {% extends "base.html" %}
 
-{% block title %}AdminPage - ParkingPal{% endblock %}
+{% block title %}Admin Dashboard - ParkingPal{% endblock %}
 
 {% block extra_css %}
+<style>
+    .container {
+        background: #fafafa;
+        padding: 40px 20px;
+        align-items: flex-start;
+    }
 
+    .admin-container {
+        width: 100%;
+        max-width: 1200px;
+    }
 
+    /* Header */
+    .header-section {
+        margin-bottom: 32px;
+    }
 
+    .header-section h1 {
+        color: #1a1a1a;
+        font-size: 2em;
+        font-weight: 600;
+        margin-bottom: 4px;
+        letter-spacing: -0.5px;
+    }
 
+    .header-section p {
+        color: #666;
+        font-size: 1em;
+    }
 
+    .admin-badge {
+        display: inline-block;
+        background:#667eea;
+        color: white;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 600;
+        margin-left: 12px;
+        letter-spacing: 0.5px;
+    }
 
+    /* Camera Selection Cards */
+    .camera-section {
+        margin-bottom: 32px;
+    }
 
+    .camera-section h2 {
+        color: #1a1a1a;
+        margin-bottom: 20px;
+        font-size: 1.3em;
+        font-weight: 600;
+        letter-spacing: -0.5px;
+    }
+
+    .camera-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .camera-card {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        border: 2px solid #f0f0f0;
+        transition: all 0.3s;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .camera-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        border-color: #667eea;
+    }
+
+    .camera-card.active {
+        border-color: #667eea;
+        background: linear-gradient(135deg, #f5f7ff 0%, #faf5ff 100%);
+    }
+
+    .camera-card .icon {
+        font-size: 3em;
+        margin-bottom: 16px;
+        display: block;
+    }
+
+    .camera-card.parking .icon { color: #2196F3; }
+    .camera-card.entry .icon { color: #4CAF50; }
+    .camera-card.exit .icon { color: #FF9800; }
+
+    .camera-card h3 {
+        color: #1a1a1a;
+        font-size: 1.4em;
+        font-weight: 600;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+    }
+
+    .camera-card p {
+        color: #666;
+        font-size: 0.95em;
+        line-height: 1.6;
+        margin-bottom: 16px;
+    }
+
+    .camera-card .features {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #f0f0f0;
+    }
+
+    .camera-card .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #666;
+        font-size: 0.9em;
+    }
+
+    .camera-card .status-indicator {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #4CAF50;
+        box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.2);
+    }
+
+    .camera-card .interactive-badge {
+        display: inline-block;
+        background: #667eea;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.75em;
+        font-weight: 600;
+        margin-top: 8px;
+    }
+
+    /* View Display Area (hidden initially) */
+    .view-container {
+        display: none;
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        border: 1px solid #f0f0f0;
+        margin-top: 32px;
+    }
+
+    .view-container.active {
+        display: block;
+        animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .view-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+
+    .view-header h2 {
+        color: #1a1a1a;
+        font-size: 1.5em;
+        font-weight: 600;
+        letter-spacing: -0.5px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .close-btn {
+        background: #f5f5f5;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        color: #666;
+        transition: all 0.3s;
+    }
+
+    .close-btn:hover {
+        background: #e0e0e0;
+        color: #1a1a1a;
+    }
+
+    .video-placeholder {
+        width: 100%;
+        aspect-ratio: 16/9;
+        background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #999;
+        font-size: 1.1em;
+        border: 2px dashed #ddd;
+    }
+
+    /* Control Buttons for Parking Lot */
+    .controls {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+    }
+
+    .control-btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95em;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .control-btn.primary {
+        background: #667eea;
+        color: white;
+    }
+
+    .control-btn.primary:hover {
+        background: #5568d3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .control-btn.success {
+        background: #4CAF50;
+        color: white;
+    }
+
+    .control-btn.success:hover {
+        background: #45a049;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+    }
+
+    .control-btn.danger {
+        background: #f44336;
+        color: white;
+    }
+
+    .control-btn.danger:hover {
+        background: #da190b;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+    }
+
+    .info-box {
+        background: #e3f2fd;
+        border-left: 4px solid #2196F3;
+        padding: 16px;
+        border-radius: 8px;
+        margin: 20px 0;
+        color: #1565c0;
+        font-size: 0.95em;
+        line-height: 1.6;
+    }
+
+    .info-box strong {
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .camera-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .header-section h1 {
+            font-size: 1.5em;
+        }
+
+        .view-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .controls {
+            flex-direction: column;
+        }
+
+        .control-btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <!-- Header -->
+    <div class="header-section">
+        <h1>
+            Admin Dashboard
+        </h1>
+        <p>Camera Management & Monitoring System</p>
+    </div>
+
+    <!-- Camera Selection -->
+    <div class="camera-section">
+        <h2>Select Camera View</h2>
+        <div class="camera-grid">
+            <!-- Parking Lot Camera -->
+            <div class="camera-card parking" onclick="showCamera('parking')">
+                <div class="status-indicator"></div>
+                <h3>Parking Lot</h3>
+                <p>Monitor parking spaces and define detection zones</p>
+            </div>
+
+            <!-- Entry Gate Camera -->
+            <div class="camera-card entry" onclick="showCamera('entry')">
+                <div class="status-indicator"></div>
+                <h3>Entry</h3>
+                <p>Monitor incoming vehicles and detect license plates</p>
+            </div>
+
+            <!-- Exit Gate Camera -->
+            <div class="camera-card exit" onclick="showCamera('exit')">
+                <div class="status-indicator"></div>
+                <h3>Exit</h3>
+                <p>Monitor outgoing vehicles and detect license plates</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parking Lot View -->
+    <div id="parking-view" class="view-container">
+        <div class="view-header">
+            <h2>Parking Lot Camera</h2>
+            <button class="close-btn" onclick="closeView()">✕ Close View</button>
+        </div>
+
+        <div class="controls">
+            <button class="control-btn primary" onclick="alert('Define mode will be implemented soon!')">
+                Define Parking Spaces
+            </button>
+            <button class="control-btn success" onclick="alert('Save functionality will be implemented soon!')">
+                Save & Apply Changes
+            </button>
+            <button class="control-btn danger" onclick="alert('Cancel functionality will be implemented soon!')">
+                ✕ Cancel Changes
+            </button>
+        </div>
+
+        <div class="info-box">
+            <strong>Instructions:</strong>
+            Click "Define Parking Spaces" to enter drawing mode. Click 4 points to create each parking space border. Right-click to cancel current drawing. Click on existing spaces to remove them.
+        </div>
+
+        <div class="video-placeholder">
+            Camera feed will appear here
+        </div>
+    </div>
+
+    <!-- Entry Gate View -->
+    <div id="entry-view" class="view-container">
+        <div class="view-header">
+            <h2>Entry Gate Camera</h2>
+            <button class="close-btn" onclick="closeView()">✕ Close View</button>
+        </div>
+
+        <div class="info-box">
+            <strong>Status:</strong>
+            Monitoring incoming vehicles and automatically detecting license plates. All entries are logged to the system.
+        </div>
+
+        <div class="video-placeholder">
+            Camera feed will appear here
+        </div>
+    </div>
+
+    <!-- Exit Gate View -->
+    <div id="exit-view" class="view-container">
+        <div class="view-header">
+            <h2>Exit Gate Camera</h2>
+            <button class="close-btn" onclick="closeView()">✕ Close View</button>
+        </div>
+
+        <div class="info-box">
+            <strong>Status:</strong>
+            Monitoring outgoing vehicles and automatically detecting license plates. All exits are logged to the system.
+        </div>
+
+        <div class="video-placeholder">
+            Camera feed will appear here
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentView = null;
+
+    function showCamera(type) {
+        // Close any open view first
+        closeView();
+
+        // Hide all views
+        document.querySelectorAll('.view-container').forEach(view => {
+            view.classList.remove('active');
+        });
+
+        // Remove active state from all cards
+        document.querySelectorAll('.camera-card').forEach(card => {
+            card.classList.remove('active');
+        });
+
+        // Show selected view
+        const viewId = `${type}-view`;
+        const viewElement = document.getElementById(viewId);
+        if (viewElement) {
+            viewElement.classList.add('active');
+            currentView = type;
+
+            // Scroll to view
+            viewElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Highlight selected card
+        const selectedCard = document.querySelector(`.camera-card.${type}`);
+        if (selectedCard) {
+            selectedCard.classList.add('active');
+        }
+    }
+
+    function closeView() {
+        // Hide all views
+        document.querySelectorAll('.view-container').forEach(view => {
+            view.classList.remove('active');
+        });
+
+        // Remove active state from all cards
+        document.querySelectorAll('.camera-card').forEach(card => {
+            card.classList.remove('active');
+        });
+
+        currentView = null;
+
+        // Scroll back to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
 {% endblock %}
