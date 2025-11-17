@@ -18,6 +18,9 @@
     /* Header */
     .header-section {
         margin-bottom: 32px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
 
     .header-section h1 {
@@ -31,6 +34,32 @@
     .header-section p {
         color: #666;
         font-size: 1em;
+    }
+
+    .refresh-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #666;
+        font-size: 0.9em;
+    }
+
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #4CAF50;
+        animation: pulse 2s infinite;
+    }
+
+    .status-dot.error {
+        background: #f44336;
+        animation: none;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
     }
 
     /* Stats */
@@ -115,7 +144,7 @@
         align-items: center;
         justify-content: center;
         font-weight: 600;
-        transition: all 0.2s;
+        transition: all 0.3s;
         cursor: pointer;
         border: 2px solid;
     }
@@ -134,6 +163,15 @@
         background: #FFF3E0;
         border-color: #FF9800;
         color: #E65100;
+    }
+
+    .space-box.status-changed {
+        animation: statusChange 0.5s ease-in-out;
+    }
+
+    @keyframes statusChange {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
     }
 
     .space-box .space-number {
@@ -169,6 +207,16 @@
         100% { transform: rotate(360deg); }
     }
 
+    /* Error message */
+    .error-message {
+        background: #ffebee;
+        color: #c62828;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: none;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
         .spaces-grid {
@@ -182,16 +230,31 @@
         .header-section h1 {
             font-size: 1.5em;
         }
+
+        .header-section {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="dashboard-container">
+    <!-- Error Message -->
+    <div class="error-message" id="errorMessage"></div>
+
     <!-- Header -->
     <div class="header-section">
-        <h1>Welcome, {{ username }}</h1>
-        <p>Real-time parking overview</p>
+        <div>
+            <h1>Welcome, {{ username }}</h1>
+            <p>Real-time parking overview</p>
+        </div>
+        <div class="refresh-indicator">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="lastUpdate">Connecting...</span>
+        </div>
     </div>
 
     <!-- Statistics -->
@@ -231,29 +294,29 @@
 </div>
 
 <script>
-    // Mock data - replace with real API later
-    function loadParkingData() {
-        const mockData = {
-            total: 12,
-            available: 5,
-            occupied: 7,
-            spaces: [
-                { id: 1, status: 'available' },
-                { id: 2, status: 'occupied' },
-                { id: 3, status: 'available' },
-                { id: 4, status: 'occupied' },
-                { id: 5, status: 'occupied' },
-                { id: 6, status: 'available' },
-                { id: 7, status: 'occupied' },
-                { id: 8, status: 'available' },
-                { id: 9, status: 'occupied' },
-                { id: 10, status: 'occupied' },
-                { id: 11, status: 'available' },
-                { id: 12, status: 'occupied' }
-            ]
-        };
+    let previousSpaces = {};
+    let updateInterval = null;
+    const REFRESH_INTERVAL = 3000; // Refresh every 3 seconds
 
-        updateDashboard(mockData);
+    // Fetch parking data from API
+    async function loadParkingData() {
+        try {
+            const response = await fetch('/api/parking/status');
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            updateDashboard(data);
+            updateStatus(true);
+            hideError();
+
+        } catch (error) {
+            console.error('Error fetching parking data:', error);
+            updateStatus(false);
+            showError('Unable to connect to parking system. Retrying...');
+        }
     }
 
     function updateDashboard(data) {
@@ -264,32 +327,122 @@
 
         // Update spaces grid
         const spacesGrid = document.getElementById('spacesGrid');
-        spacesGrid.innerHTML = data.spaces.map(space => `
-            <div class="space-box ${space.status}">
-                <div class="space-number">${space.id}</div>
-                <div class="space-status">
-                    ${space.status === 'available' ? 'Free' : 'Busy'}
+
+        if (data.spaces.length === 0) {
+            spacesGrid.innerHTML = `
+                <div class="loading">
+                    <p>No parking spaces configured yet</p>
                 </div>
-            </div>
-        `).join('');
+            `;
+            return;
+        }
+
+        spacesGrid.innerHTML = data.spaces.map(space => {
+            const changed = previousSpaces[space.id] !== undefined &&
+                          previousSpaces[space.id] !== space.status;
+
+            const changedClass = changed ? 'status-changed' : '';
+
+            return `
+                <div class="space-box ${space.status} ${changedClass}" data-space-id="${space.id}">
+                    <div class="space-number">${space.id}</div>
+                    <div class="space-status">
+                        ${space.status === 'available' ? 'Free' : 'Busy'}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Update previous spaces for change detection
+        previousSpaces = {};
+        data.spaces.forEach(space => {
+            previousSpaces[space.id] = space.status;
+        });
     }
 
     function animateNumber(elementId, target) {
         const element = document.getElementById(elementId);
-        let current = 0;
-        const increment = target / 20;
+        const current = parseInt(element.textContent) || 0;
+
+        if (current === target) {
+            return;
+        }
+
+        const increment = target > current ? 1 : -1;
+        const duration = 500; // ms
+        const steps = Math.abs(target - current);
+        const stepDuration = duration / steps;
+
+        let value = current;
         const timer = setInterval(() => {
-            current += increment;
-            if (current >= target) {
-                element.textContent = target;
+            value += increment;
+            element.textContent = value;
+
+            if (value === target) {
                 clearInterval(timer);
-            } else {
-                element.textContent = Math.floor(current);
             }
-        }, 30);
+        }, stepDuration);
     }
 
-    // Load on page load
-    loadParkingData();
+    function updateStatus(connected) {
+        const statusDot = document.getElementById('statusDot');
+        const lastUpdate = document.getElementById('lastUpdate');
+
+        if (connected) {
+            statusDot.classList.remove('error');
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            lastUpdate.textContent = `Updated ${timeStr}`;
+        } else {
+            statusDot.classList.add('error');
+            lastUpdate.textContent = 'Connection error';
+        }
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('errorMessage');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+
+    function hideError() {
+        const errorDiv = document.getElementById('errorMessage');
+        errorDiv.style.display = 'none';
+    }
+
+    // Start periodic updates
+    function startAutoRefresh() {
+        // Load immediately
+        loadParkingData();
+
+        // Then refresh periodically
+        if (updateInterval) {
+            clearInterval(updateInterval);
+        }
+
+        updateInterval = setInterval(loadParkingData, REFRESH_INTERVAL);
+    }
+
+    // Stop updates when page is hidden
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+        } else {
+            startAutoRefresh();
+        }
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (updateInterval) {
+            clearInterval(updateInterval);
+        }
+    });
+
+    // Start when page loads
+    startAutoRefresh();
 </script>
 {% endblock %}
