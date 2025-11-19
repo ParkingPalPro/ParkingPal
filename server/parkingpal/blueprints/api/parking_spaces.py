@@ -5,73 +5,66 @@ from server.parkingpal.extensions import db
 from server.parkingpal.models import ParkingSpace
 
 
+@api_bp.route('/parking/update', methods=['POST'])
+def update_parking_status():
+    data = request.json
+    camera_id = data.get('camera_id', 'default')
+    spaces = data.get('spaces', [])
 
-@api_bp.route("/parking/update", methods=["POST"])
-def update_parking_spaces():
+    if not spaces:
+        return jsonify({"error": "No spaces provided"}), 400
+
+    timestamp = datetime.now(UTC)
+
     try:
-        data = request.get_json()
-        if not data or "spaces" not in data:
-            return jsonify({"error": "Invalid data format"}), 400
+        for space in spaces:
+            space_number = space["space_number"]
+            is_free = space["is_free"]
 
-        now = datetime.now(UTC)
+            # Try to fetch existing row
+            existing = ParkingSpace.query.filter_by(
+                camera_id=camera_id,
+                space_number=space_number
+            ).first()
 
-        for s in data["spaces"]:
-            space_number = s.get("space_number")
-            is_free = s.get("is_free")
-
-            if space_number is None or is_free is None:
-                continue
-
-            # Prevent autoflush from inserting before checking
-            with db.session.no_autoflush:
-                space = ParkingSpace.query.get(space_number)
-
-            if space is None:
-                space = ParkingSpace(
+            if existing:
+                # Update
+                existing.is_free = is_free
+                existing.last_updated = timestamp
+            else:
+                # Insert new
+                new_space = ParkingSpace(
+                    camera_id=camera_id,
                     space_number=space_number,
                     is_free=is_free,
-                    last_updated=now
+                    last_updated=timestamp
                 )
-                db.session.add(space)
-            else:
-                space.is_free = is_free
-                space.last_updated = now
+                db.session.add(new_space)
 
         db.session.commit()
-        return jsonify({"success": True, "message": "Parking spaces updated"}), 200
 
     except Exception as e:
         db.session.rollback()
-        print("Error updating parking:", e)
         return jsonify({"error": str(e)}), 500
 
+    return jsonify({'status': 'success', 'updated': len(spaces)})
 
-@api_bp.route("/parking/status", methods=["GET"])
+
+@api_bp.route('/parking/status', methods=['GET'])
 def get_parking_status():
-    try:
-        spaces = ParkingSpace.query.order_by(ParkingSpace.space_number).all()
 
-        spaces_list = [
-            {
-                "id": s.space_number,
-                "status": "available" if s.is_free else "occupied",
-                "last_updated": s.last_updated
-            }
-            for s in spaces
-        ]
+    spaces = ParkingSpace.query.all()
 
-        total = len(spaces_list)
-        available = sum(1 for s in spaces_list if s["status"] == "available")
-        occupied = total - available
+    result = [{
+        "id": s.space_number,
+        "status": "available" if s.is_free else "occupied",
+        "last_updated": s.last_updated.isoformat()
+    } for s in spaces]
 
-        return jsonify({
-            "total": total,
-            "available": available,
-            "occupied": occupied,
-            "spaces": spaces_list
-        }), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+    return jsonify({
+        "total": len(spaces),
+        "available": sum(1 for s in spaces if s.is_free),
+        "occupied": sum(1 for s in spaces if not s.is_free),
+        "spaces": result
+    })
 
