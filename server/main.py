@@ -1,19 +1,8 @@
 from flask import Flask, request, jsonify
 from datetime import datetime
 import sqlite3
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import threading
 
 app = Flask(__name__)
-
-# Email Configuration - UPDATE THESE!
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SMTP_USERNAME = "your_email@gmail.com"
-SMTP_PASSWORD = "your_app_password"  # Use App Password for Gmail
-FROM_EMAIL = "parking@yourdomain.com"
 
 
 # Database initialization
@@ -65,56 +54,6 @@ def get_db():
     conn = sqlite3.connect('parking.db')
     conn.row_factory = sqlite3.Row
     return conn
-
-
-def send_parking_receipt(user_email, plate_number, entrance_time, exit_time, duration_minutes):
-    """Send parking receipt via email"""
-    try:
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = f'Parking Receipt - {plate_number}'
-        msg['From'] = FROM_EMAIL
-        msg['To'] = user_email
-
-        # Create HTML email body
-        html = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #4CAF50; color: white; padding: 20px; text-align: center;">
-                <h1>Parking Receipt</h1>
-            </div>
-            <div style="padding: 20px; background-color: #f9f9f9;">
-                <h2>Thank you for parking with us!</h2>
-
-                <div style="background-color: white; padding: 15px; margin: 10px 0; border-radius: 5px;">
-                    <p><strong>Vehicle:</strong> {plate_number}</p>
-                    <p><strong>Entry Time:</strong> {entrance_time}</p>
-                    <p><strong>Exit Time:</strong> {exit_time}</p>
-                    <p><strong>Duration:</strong> {duration_minutes} minutes ({duration_minutes // 60}h {duration_minutes % 60}m)</p>
-                </div>
-
-                <p style="color: #666; font-size: 12px; margin-top: 20px;">
-                    This is an automated message. Please do not reply to this email.
-                </p>
-            </div>
-        </body>
-        </html>
-        """
-
-        part = MIMEText(html, 'html')
-        msg.attach(part)
-
-        # Send email
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USERNAME, SMTP_PASSWORD)
-            server.send_message(msg)
-
-        print(f"✓ Email sent to {user_email}")
-        return True
-
-    except Exception as e:
-        print(f"✗ Email error: {e}")
-        return False
 
 
 def calculate_duration(entrance_time, exit_time):
@@ -221,19 +160,6 @@ def handle_plate_event():
 
             # Calculate duration and send email in background
             duration = calculate_duration(session['entrance_time'], timestamp)
-
-            if session['user_email']:
-                # Send email in separate thread to not block response
-                threading.Thread(
-                    target=send_parking_receipt,
-                    args=(
-                        session['user_email'],
-                        session['original_plate'] or hashed_plate[:8],
-                        session['entrance_time'],
-                        timestamp,
-                        duration
-                    )
-                ).start()
 
             return jsonify({
                 "status": "success",
@@ -361,8 +287,6 @@ if __name__ == '__main__':
     init_db()
     print("Database initialized")
     print("\nServer Configuration:")
-    print(f"  SMTP Server: {SMTP_SERVER}")
-    print(f"  From Email: {FROM_EMAIL}")
     print("\nEndpoints:")
     print("  POST /plate_event - Handle camera events")
     print("  POST /register_plate - Register plate with email")
