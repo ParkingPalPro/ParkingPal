@@ -49,18 +49,17 @@ class ParkingCamera:
             "role": self.role.value,
             "hashed_plate": hashed_plate,
             "timestamp": timestamp,
-            "original_plate": plate_number  # Only for entrance to associate email
         }
 
         try:
             response = requests.post(
-                f"{self.server_url}/plate_event",
+                f"{self.server_url}/api/register_plate",
                 json=payload,
                 timeout=5
             )
 
             if response.status_code == 200:
-                print(f"✓ Sent to server: {plate_number} -> {hashed_plate[:16]}...")
+                print(f"✓ Sent to server: {hashed_plate[:16]}...")
                 result = response.json()
                 if result.get("message"):
                     print(f"  Server: {result['message']}")
@@ -264,7 +263,7 @@ if __name__ == "__main__":
     )
 
     # For video file:
-    camera.process_video('./videos/entry.mp4')
+    camera.process_video("../test_videos/entry.mp4")
 
     # For webcam:
     # camera.process_video(0)

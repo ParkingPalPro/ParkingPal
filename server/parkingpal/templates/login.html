@@ -129,7 +129,7 @@
         <h2>Welcome Back</h2>
         <p class="subtitle">Sign in to continue</p>
 
-        <form method="POST" action="{{ url_for('login') }}">
+        <form method="POST" action="{{ url_for('auth.login') }}">
             <div class="form-group">
                 <label for="username">Username</label>
                 <input
@@ -157,7 +157,7 @@
         </form>
 
         <div class="link-text">
-            New here? <a href="{{ url_for('register') }}">Create an account</a>
+            New here? <a href="{{ url_for('auth.register') }}">Create an account</a>
         </div>
     </div>
 </div>
