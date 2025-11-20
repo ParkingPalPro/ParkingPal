@@ -1,11 +1,8 @@
 ﻿import cv2
 import numpy as np
-from pathlib import Path
 import time
 import requests
-import json
 from threading import Thread, Lock
-from datetime import datetime
 import io
 
 # Try to import Picamera2, fallback to regular camera if not available
@@ -16,6 +13,14 @@ try:
 except ImportError:
     PICAMERA_AVAILABLE = False
     print("Picamera2 not available, using standard camera")
+
+def resize_frame_keep_ratio(frame, target_width=360):
+    h, w = frame.shape[:2]
+    scale = target_width / float(w)
+    target_height = int(h * scale)
+    resized = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
+    return resized, scale
+
 
 
 class HybridParkingDetector:
@@ -327,7 +332,7 @@ class HybridParkingDetector:
         pixel_ratio = pixel_count / mask_area
 
         # Decision: occupied if combined pixel ratio exceeds threshold
-        is_occupied = pixel_ratio > 0.25
+        is_occupied = pixel_ratio > 0.28
 
         return is_occupied
 
@@ -466,6 +471,7 @@ class HybridParkingDetector:
                         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     continue
 
+
                 # Send snapshot to server periodically
                 self.send_snapshot(frame)
 
@@ -478,13 +484,15 @@ class HybridParkingDetector:
 
                 # Draw results
                 result = self.draw_spaces(frame, occupied_ids, free_ids)
+                result = cv2.resize(result, (420, int(frame.shape[0] * (420 / frame.shape[1]))))
+                combined_frame = cv2.resize(combined_frame, (420, int(frame.shape[0] * (420 / frame.shape[1]))))
 
                 # Display
                 cv2.imshow(f'Parking Detector - {self.camera_id}', result)
-                if edge_frame is not None:
-                    cv2.imshow('Edge Detection', edge_frame)
-                if bg_mask is not None:
-                    cv2.imshow('Background Subtraction', bg_mask)
+                #if edge_frame is not None:
+                #    cv2.imshow('Edge Detection', edge_frame)
+                #if bg_mask is not None:
+                #    cv2.imshow('Background Subtraction', bg_mask)
                 if combined_frame is not None:
                     cv2.imshow('Combined (Edge OR BG)', combined_frame)
 
