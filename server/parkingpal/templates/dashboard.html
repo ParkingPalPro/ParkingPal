@@ -320,6 +320,7 @@
     }
 
     function updateDashboard(data) {
+        console.log(data);
         // Update stats with animation
         animateNumber('totalSpaces', data.total);
         animateNumber('availableSpaces', data.available);

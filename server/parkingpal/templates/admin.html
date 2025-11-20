@@ -533,6 +533,25 @@
                 <button class="control-btn primary" onclick="saveParkingConfiguration()">💾 Save & Deploy</button>
             </div>
 
+            <!-- Edit Space Number -->
+            <div class="control-section" id="editSpaceSection" style="display: none;">
+                <h3>Edit Selected Space</h3>
+                <label for="spaceNumberInput" style="display: block; margin-bottom: 8px; color: #666; font-size: 0.9em;">
+                    Space Number:
+                </label>
+                <input 
+                    type="number" 
+                    id="spaceNumberInput" 
+                    class="camera-select" 
+                    min="0" 
+                    placeholder="Enter space number"
+                    style="margin-bottom: 0;"
+                />
+                <button class="control-btn primary" onclick="updateSpaceNumber()" style="margin-top: 12px;">
+                    ✓ Update Number
+                </button>
+            </div>
+
             <!-- Status -->
             <div class="control-section">
                 <div class="status-box">
@@ -645,9 +664,10 @@
     </div>
 </div>
 
+
 <script>
     let currentView = null;
-    
+
     // Parking canvas variables
     let parkingCanvas = null;
     let parkingCtx = null;
@@ -820,6 +840,36 @@
             .catch(err => console.error('Failed to load config:', err));
     }
 
+    function updateSpaceNumber() {
+        if (parkingSelectedSpaceIndex < 0) {
+            alert('Please select a space first');
+            return;
+        }
+
+        const input = document.getElementById('spaceNumberInput');
+        const newNumber = parseInt(input.value);
+
+        if (isNaN(newNumber) || newNumber < 0) {
+            alert('Please enter a valid space number (0 or greater)');
+            return;
+        }
+
+        // Check if number is already used by another space
+        const duplicate = parkingSpaces.find((space, idx) =>
+            idx !== parkingSelectedSpaceIndex && space.id === newNumber
+        );
+
+        if (duplicate) {
+            alert(`Space number ${newNumber} is already in use. Please choose a different number.`);
+            return;
+        }
+
+        parkingSpaces[parkingSelectedSpaceIndex].id = newNumber;
+        redrawParkingCanvas();
+        updateParkingSpaceList();
+        alert(`✓ Space number updated to ${newNumber}`);
+    }
+
     function saveParkingConfiguration() {
         if (!currentParkingCameraId) {
             alert('Please select a camera first');
@@ -976,7 +1026,7 @@
             const isHovered = index === parkingHoveredSpaceIndex;
 
             // Fill
-            parkingCtx.fillStyle = isSelected ? 'rgba(59, 130, 246, 0.3)' : 
+            parkingCtx.fillStyle = isSelected ? 'rgba(59, 130, 246, 0.3)' :
                            isHovered ? 'rgba(251, 191, 36, 0.3)' :
                            'rgba(168, 85, 247, 0.2)';
             parkingCtx.beginPath();
@@ -988,7 +1038,7 @@
             parkingCtx.fill();
 
             // Border
-            parkingCtx.strokeStyle = isSelected ? '#3b82f6' : 
+            parkingCtx.strokeStyle = isSelected ? '#3b82f6' :
                              isHovered ? '#f59e0b' :
                              '#a855f7';
             parkingCtx.lineWidth = isSelected ? 3 : 2;
@@ -1010,8 +1060,8 @@
             parkingCtx.font = 'bold 20px Arial';
             parkingCtx.textAlign = 'center';
             parkingCtx.textBaseline = 'middle';
-            parkingCtx.strokeText(index.toString(), center[0], center[1]);
-            parkingCtx.fillText(index.toString(), center[0], center[1]);
+            parkingCtx.strokeText(space.id.toString(), center[0], center[1]);
+            parkingCtx.fillText(space.id.toString(), center[0], center[1]);
         });
 
         // Draw current points being placed
@@ -1058,7 +1108,7 @@
             const item = document.createElement('div');
             item.className = 'space-item' + (index === parkingSelectedSpaceIndex ? ' selected' : '');
             item.innerHTML = `
-                <span>Space ${index}</span>
+                <span>Space ${space.id}</span>
                 <span>${space.points.length} points</span>
             `;
             item.onclick = () => {
@@ -1076,8 +1126,20 @@
         document.getElementById('parkingCameraStatus').textContent = currentParkingCameraId || 'Not Selected';
         document.getElementById('parkingTotalSpaces').textContent = parkingSpaces.length;
         document.getElementById('parkingCurrentPoints').textContent = `${parkingCurrentPoints.length}/4`;
-        document.getElementById('parkingSelectedSpace').textContent = 
-            parkingSelectedSpaceIndex >= 0 ? `Space ${parkingSelectedSpaceIndex}` : 'None';
+        document.getElementById('parkingSelectedSpace').textContent =
+            parkingSelectedSpaceIndex >= 0 ? `Space ${parkingSpaces[parkingSelectedSpaceIndex].id}` : 'None';
+
+        // Show/hide edit section and populate input
+        const editSection = document.getElementById('editSpaceSection');
+        const spaceNumberInput = document.getElementById('spaceNumberInput');
+
+        if (parkingSelectedSpaceIndex >= 0) {
+            editSection.style.display = 'block';
+            spaceNumberInput.value = parkingSpaces[parkingSelectedSpaceIndex].id;
+        } else {
+            editSection.style.display = 'none';
+            spaceNumberInput.value = '';
+        }
     }
 </script>
 {% endblock %}

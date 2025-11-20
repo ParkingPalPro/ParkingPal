@@ -7,6 +7,10 @@ from server.parkingpal.models import ParkingSpace
 
 @api_bp.route('/parking/update', methods=['POST'])
 def update_parking_status():
+    """
+    Update parking space status from camera detector.
+    Expects global space numbers (unique across all cameras).
+    """
     data = request.json
     camera_id = data.get('camera_id', 'default')
     spaces = data.get('spaces', [])
@@ -18,21 +22,21 @@ def update_parking_status():
 
     try:
         for space in spaces:
-            space_number = space["space_number"]
+            space_number = space["space_number"]  # Global unique number
             is_free = space["is_free"]
 
-            # Try to fetch existing row
+            # Find by unique space_number (not camera_id)
             existing = ParkingSpace.query.filter_by(
-                camera_id=camera_id,
                 space_number=space_number
             ).first()
 
             if existing:
-                # Update
+                # Update existing space
                 existing.is_free = is_free
                 existing.last_updated = timestamp
+                # Don't change camera_id - space belongs to original camera
             else:
-                # Insert new
+                # Create new space
                 new_space = ParkingSpace(
                     camera_id=camera_id,
                     space_number=space_number,
@@ -52,8 +56,17 @@ def update_parking_status():
 
 @api_bp.route('/parking/status', methods=['GET'])
 def get_parking_status():
+    """
+    Get status of all parking spaces across all cameras.
+    Returns global space numbers.
+    """
+    camera_id = request.args.get('camera_id')  # Optional filter
 
-    spaces = ParkingSpace.query.all()
+    query = ParkingSpace.query
+    if camera_id:
+        query = query.filter_by(camera_id=camera_id)
+
+    spaces = query.order_by(ParkingSpace.space_number).all()
 
     result = [{
         "id": s.space_number,
@@ -67,4 +80,3 @@ def get_parking_status():
         "occupied": sum(1 for s in spaces if not s.is_free),
         "spaces": result
     })
-

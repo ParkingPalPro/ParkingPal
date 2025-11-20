@@ -18,9 +18,13 @@ except ImportError:
     print("Picamera2 not available, using standard camera")
 
 
-class WebManagedParkingDetector:
+class HybridParkingDetector:
     """
-    Parking space detector that syncs configuration from web admin interface
+    Parking detector with:
+    - Web-based configuration management (pulls from API)
+    - Hybrid detection (background subtraction + edge detection)
+    - Snapshot uploads
+    - Proper space ID mapping from API
     """
 
     def __init__(self, camera_id='CAM_PARKING_01', video_source=0,
@@ -33,17 +37,25 @@ class WebManagedParkingDetector:
         self.server_url = server_url
         self.picam2 = None
 
-        # Parking spaces configuration
+        # Parking spaces configuration (from API)
+        # Format: [{'id': 4, 'points': [[x,y], ...]}, ...]
         self.parking_spaces = []
         self.config_lock = Lock()
 
+        # Background subtraction
+        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
+            history=500,
+            varThreshold=40,
+            detectShadows=True
+        )
+
         # Timing
-        self.snapshot_interval = snapshot_interval  # Send snapshot every N seconds
-        self.config_check_interval = config_check_interval  # Check for config updates
+        self.snapshot_interval = snapshot_interval
+        self.config_check_interval = config_check_interval
         self.last_snapshot_time = 0
         self.last_config_check = 0
 
-        # Status tracking
+        # Status tracking - keyed by space ID (not index)
         self.last_status = {}
         self.status_lock = Lock()
 
@@ -131,7 +143,9 @@ class WebManagedParkingDetector:
                 with self.config_lock:
                     if spaces != self.parking_spaces:
                         self.parking_spaces = spaces
+                        space_ids = [s['id'] for s in spaces]
                         print(f"✓ Configuration updated: {len(spaces)} parking spaces")
+                        print(f"  Space IDs: {space_ids}")
                         return True
                 return False
             else:
@@ -153,13 +167,16 @@ class WebManagedParkingDetector:
 
             time.sleep(1)
 
-    def send_status_to_server(self, occupied_spaces, free_spaces):
-        """Send parking status to server"""
+    def send_status_to_server(self, occupied_space_ids, free_space_ids):
+        """
+        Send parking status to server
+        Uses space IDs (not indices)
+        """
         current_status = {}
-        for i in free_spaces:
-            current_status[i] = True
-        for i in occupied_spaces:
-            current_status[i] = False
+        for space_id in free_space_ids:
+            current_status[space_id] = True
+        for space_id in occupied_space_ids:
+            current_status[space_id] = False
 
         # Check if status changed
         with self.status_lock:
@@ -169,8 +186,8 @@ class WebManagedParkingDetector:
 
         # Prepare data
         spaces_data = [
-            {'space_number': space_num, 'is_free': is_free}
-            for space_num, is_free in current_status.items()
+            {'space_number': space_id, 'is_free': is_free}
+            for space_id, is_free in current_status.items()
         ]
 
         data = {
@@ -187,15 +204,17 @@ class WebManagedParkingDetector:
                 )
 
                 if response.status_code == 200:
-                    print(f"✓ Status update: {len(free_spaces)} free, {len(occupied_spaces)} occupied")
+                    print(f"✓ Status update: {len(free_space_ids)} free, {len(occupied_space_ids)} occupied")
+                    print(f"  Free IDs: {free_space_ids}")
+                    print(f"  Occupied IDs: {occupied_space_ids}")
 
             except Exception as e:
                 print(f"✗ Status update error: {e}")
 
         Thread(target=send, daemon=True).start()
 
-    def preprocess_frame(self, frame):
-        """Preprocess frame for occupancy detection"""
+    def preprocess_frame_edges(self, frame):
+        """Edge detection preprocessing"""
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Enhance contrast
@@ -211,6 +230,20 @@ class WebManagedParkingDetector:
         dilated = cv2.dilate(edges, kernel, iterations=2)
 
         return dilated
+
+    def preprocess_frame_bg_sub(self, frame):
+        """Background subtraction preprocessing"""
+        fg_mask = self.bg_subtractor.apply(frame)
+
+        # Remove shadows (value 127 in MOG2)
+        _, fg_mask = cv2.threshold(fg_mask, 200, 255, cv2.THRESH_BINARY)
+
+        # Noise reduction
+        kernel = np.ones((3, 3), np.uint8)
+        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel, iterations=1)
+        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+        return fg_mask
 
     def get_color_variance(self, frame, space):
         """Calculate color variance in parking space"""
@@ -245,8 +278,13 @@ class WebManagedParkingDetector:
 
         return np.std(masked_pixels)
 
-    def check_parking_space(self, edge_frame, color_frame, space):
-        """Check if parking space is occupied"""
+    @staticmethod
+    def check_parking_space(edge_frame, bg_mask, color_frame, space):
+        """
+        Check if parking space is occupied using hybrid approach:
+        1. Combine edge detection and background subtraction with bitwise OR
+        2. Analyze combined pixel density
+        """
         pts = np.array(space['points'], np.int32)
         x, y, w, h = cv2.boundingRect(pts)
 
@@ -261,100 +299,121 @@ class WebManagedParkingDetector:
         if w <= 0 or h <= 0:
             return False
 
+        # Create mask for the polygon
         mask = np.zeros((h, w), dtype=np.uint8)
         shifted_pts = pts - [x, y]
         cv2.fillPoly(mask, [shifted_pts], 255)
 
-        roi = edge_frame[y:y + h, x:x + w]
-
-        if roi.shape[0] != mask.shape[0] or roi.shape[1] != mask.shape[1]:
-            return False
-
-        masked_roi = cv2.bitwise_and(roi, roi, mask=mask)
-        edge_pixel_count = cv2.countNonZero(masked_roi)
         mask_area = cv2.countNonZero(mask)
-
         if mask_area == 0:
             return False
 
-        edge_ratio = edge_pixel_count / mask_area
-        color_variance = self.get_color_variance(color_frame, space)
+        # Extract ROIs
+        bg_roi = bg_mask[y:y + h, x:x + w]
+        edge_roi = edge_frame[y:y + h, x:x + w]
 
-        is_occupied = edge_ratio > 0.28 or color_variance > 38
+        if (bg_roi.shape[0] != mask.shape[0] or bg_roi.shape[1] != mask.shape[1] or
+                edge_roi.shape[0] != mask.shape[0] or edge_roi.shape[1] != mask.shape[1]):
+            return False
+
+        # Combine edge detection and background subtraction using bitwise OR
+        combined = cv2.bitwise_or(edge_roi, bg_roi)
+
+        # Apply mask to combined frame
+        masked_combined = cv2.bitwise_and(combined, combined, mask=mask)
+
+        # Count pixels in combined detection
+        pixel_count = cv2.countNonZero(masked_combined)
+        pixel_ratio = pixel_count / mask_area
+
+        # Decision: occupied if combined pixel ratio exceeds threshold
+        is_occupied = pixel_ratio > 0.25
 
         return is_occupied
 
     def detect_occupancy(self, frame):
-        """Detect occupancy for all parking spaces"""
+        """
+        Detect occupancy for all parking spaces
+        Returns space IDs (not indices)
+        """
         with self.config_lock:
             if len(self.parking_spaces) == 0:
-                return [], [], None
+                return [], [], None, None, None
 
             spaces = self.parking_spaces.copy()
 
-        edge_frame = self.preprocess_frame(frame)
+        # Generate both detection frames
+        edge_frame = self.preprocess_frame_edges(frame)
+        bg_mask = self.preprocess_frame_bg_sub(frame)
 
-        occupied_spaces = []
-        free_spaces = []
+        # Combine using bitwise OR
+        combined_frame = cv2.bitwise_or(edge_frame, bg_mask)
 
-        for i, space in enumerate(spaces):
-            is_occupied = self.check_parking_space(edge_frame, frame, space)
+        occupied_space_ids = []
+        free_space_ids = []
+
+        for space in spaces:
+            space_id = space['id']
+            is_occupied = self.check_parking_space(edge_frame, bg_mask, frame, space)
+
             if is_occupied:
-                occupied_spaces.append(i)
+                occupied_space_ids.append(space_id)
             else:
-                free_spaces.append(i)
+                free_space_ids.append(space_id)
 
-        return occupied_spaces, free_spaces, edge_frame
+        return occupied_space_ids, free_space_ids, edge_frame, bg_mask, combined_frame
 
-    def draw_spaces(self, frame, occupied_spaces, free_spaces):
-        """Draw parking spaces on frame"""
+    def draw_spaces(self, frame, occupied_space_ids, free_space_ids):
+        """Draw parking spaces on frame using space IDs"""
         img = frame.copy()
 
         with self.config_lock:
             spaces = self.parking_spaces.copy()
 
         # Draw free spaces (green)
-        for i in free_spaces:
-            if i < len(spaces):
-                space = spaces[i]
-                pts = np.array(space['points'], np.int32).reshape((-1, 1, 2))
+        for space in spaces:
+            space_id = space['id']
+            pts = np.array(space['points'], np.int32).reshape((-1, 1, 2))
 
+            if space_id in free_space_ids:
+                color = (0, 255, 0)  # Green
                 overlay = img.copy()
-                cv2.fillPoly(overlay, [pts], (0, 255, 0))
+                cv2.fillPoly(overlay, [pts], color)
                 cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
-                cv2.polylines(img, [pts], True, (0, 255, 0), 2)
+                cv2.polylines(img, [pts], True, color, 2)
 
-                # Label
+                # Label with space ID
                 M = cv2.moments(pts)
                 if M['m00'] != 0:
                     cx = int(M['m10'] / M['m00'])
                     cy = int(M['m01'] / M['m00'])
-                    cv2.putText(img, str(i), (cx - 10, cy + 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                    cv2.putText(img, str(space_id), (cx - 10, cy + 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
         # Draw occupied spaces (red)
-        for i in occupied_spaces:
-            if i < len(spaces):
-                space = spaces[i]
-                pts = np.array(space['points'], np.int32).reshape((-1, 1, 2))
+        for space in spaces:
+            space_id = space['id']
+            pts = np.array(space['points'], np.int32).reshape((-1, 1, 2))
 
+            if space_id in occupied_space_ids:
+                color = (0, 0, 255)  # Red
                 overlay = img.copy()
-                cv2.fillPoly(overlay, [pts], (0, 0, 255))
+                cv2.fillPoly(overlay, [pts], color)
                 cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
-                cv2.polylines(img, [pts], True, (0, 0, 255), 2)
+                cv2.polylines(img, [pts], True, color, 2)
 
-                # Label
+                # Label with space ID
                 M = cv2.moments(pts)
                 if M['m00'] != 0:
                     cx = int(M['m10'] / M['m00'])
                     cy = int(M['m01'] / M['m00'])
-                    cv2.putText(img, str(i), (cx - 10, cy + 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                    cv2.putText(img, str(space_id), (cx - 10, cy + 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
         # Statistics
         total = len(spaces)
-        free = len(free_spaces)
-        occupied = len(occupied_spaces)
+        free = len(free_space_ids)
+        occupied = len(occupied_space_ids)
 
         cv2.putText(img, f"Camera: {self.camera_id}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
@@ -387,11 +446,12 @@ class WebManagedParkingDetector:
         self.fetch_configuration()
 
         print("\n" + "=" * 60)
-        print(f"  PARKING DETECTOR - {self.camera_id}")
+        print(f"  HYBRID PARKING DETECTOR - {self.camera_id}")
         print("=" * 60)
         print(f"Server: {self.server_url}")
         print(f"Snapshot interval: {self.snapshot_interval}s")
         print(f"Config check interval: {self.config_check_interval}s")
+        print(f"Detection: Edge Detection OR Background Subtraction (bitwise OR)")
         print("\nPress 'q' to quit, 'r' to force config refresh")
         print("=" * 60 + "\n")
 
@@ -409,20 +469,24 @@ class WebManagedParkingDetector:
                 # Send snapshot to server periodically
                 self.send_snapshot(frame)
 
-                # Detect occupancy
-                occupied, free, processed = self.detect_occupancy(frame)
+                # Detect occupancy (returns space IDs, not indices)
+                occupied_ids, free_ids, edge_frame, bg_mask, combined_frame = self.detect_occupancy(frame)
 
                 # Send status to server
                 if len(self.parking_spaces) > 0:
-                    self.send_status_to_server(occupied, free)
+                    self.send_status_to_server(occupied_ids, free_ids)
 
                 # Draw results
-                result = self.draw_spaces(frame, occupied, free)
+                result = self.draw_spaces(frame, occupied_ids, free_ids)
 
                 # Display
                 cv2.imshow(f'Parking Detector - {self.camera_id}', result)
-                if processed is not None:
-                    cv2.imshow('Edge Detection', processed)
+                if edge_frame is not None:
+                    cv2.imshow('Edge Detection', edge_frame)
+                if bg_mask is not None:
+                    cv2.imshow('Background Subtraction', bg_mask)
+                if combined_frame is not None:
+                    cv2.imshow('Combined (Edge OR BG)', combined_frame)
 
                 # Handle keyboard input
                 key = cv2.waitKey(30) & 0xFF
@@ -451,10 +515,10 @@ class WebManagedParkingDetector:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Web-managed parking space detector')
+    parser = argparse.ArgumentParser(description='Hybrid web-managed parking detector')
     parser.add_argument('--camera-id', default='CAM_PARKING_01', help='Camera identifier')
     parser.add_argument('--server', default='http://localhost:5000', help='Server URL')
-    parser.add_argument('--source', default='0', help='Video source (0 for webcam, or video file path)')
+    parser.add_argument('--source', default='../edge_device/test_videos/parking_uia.mp4', help='Video source (0 for webcam, or video file path)')
     parser.add_argument('--picamera', action='store_true', help='Use Raspberry Pi camera')
     parser.add_argument('--snapshot-interval', type=int, default=10, help='Snapshot upload interval (seconds)')
     parser.add_argument('--config-interval', type=int, default=5, help='Config check interval (seconds)')
@@ -468,7 +532,7 @@ if __name__ == "__main__":
         video_source = args.source
 
     # Create detector
-    detector = WebManagedParkingDetector(
+    detector = HybridParkingDetector(
         camera_id=args.camera_id,
         video_source=video_source,
         use_picamera=args.picamera,
@@ -476,6 +540,9 @@ if __name__ == "__main__":
         snapshot_interval=args.snapshot_interval,
         config_check_interval=args.config_interval
     )
+
+    # Set OpenCV thread count for performance
+    cv2.setNumThreads(16)
 
     # Run
     detector.run()
