@@ -52,7 +52,7 @@ def login():
 
         if not username or not password:
             flash('Please enter both username and password!', 'error')
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
 
         hashed_password = hash_password(password)
 

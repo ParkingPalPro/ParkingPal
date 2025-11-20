@@ -15,6 +15,10 @@ def calculate_duration(entrance_time, exit_time):
         return 0
 
 
+def hash_plate_number(plate_number):
+    return hashlib.sha256(plate_number.encode()).hexdigest()
+
+
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
