@@ -30,7 +30,7 @@ def create_app():
         from server.parkingpal.models.camera_config import CameraConfig
         from server.parkingpal.models.parking_space import ParkingSpace
         from server.parkingpal.models.parking_session import ParkingSession
-
+        db.create_all()
         # Create default admin if not exists
         if not User.query.filter_by(username='admin').first():
             admin_user = User(
@@ -42,8 +42,6 @@ def create_app():
             db.session.add(admin_user)
             db.session.commit()
             print("Admin user created: admin / Password1.")
-
-        db.create_all()
 
     return app
 
