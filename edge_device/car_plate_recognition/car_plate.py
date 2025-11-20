@@ -34,7 +34,6 @@ class ParkingCamera:
         """
         Hash the plate number with salt using SHA-256
         """
-        salted_plate = f"{plate_number}{self.salt_key}"
         return hashlib.sha256(plate_number.encode()).hexdigest()
 
     def send_to_server(self, plate_number):
@@ -257,7 +256,7 @@ if __name__ == "__main__":
     # Example: Entrance Camera
     camera = ParkingCamera(
         camera_id="CAM_ENTRANCE_01",
-        role=CameraRole.EXIT,
+        role=CameraRole.ENTRANCE,
         server_url=SERVER_URL,
         salt_key=SALT_KEY
     )

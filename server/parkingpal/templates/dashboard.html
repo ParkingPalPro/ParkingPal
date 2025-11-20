@@ -237,6 +237,25 @@
             gap: 12px;
         }
     }
+
+    .btn-parking-session {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: #2196F3;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s;
+    }
+
+    .btn-parking-session:hover {
+        background: #1976D2;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+    }
 </style>
 {% endblock %}
 
@@ -251,6 +270,9 @@
             <h1>Welcome, {{ username }}</h1>
             <p>Real-time parking overview</p>
         </div>
+        <a href="{{ url_for('user.parking_session') }}" class="btn-parking-session">
+            View Parking Session
+        </a>
         <div class="refresh-indicator">
             <div class="status-dot" id="statusDot"></div>
             <span id="lastUpdate">Connecting...</span>

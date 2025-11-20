@@ -5,6 +5,8 @@ import requests
 from threading import Thread, Lock
 import io
 
+OCCUPATION_THRESHOLD = 0.28
+
 # Try to import Picamera2, fallback to regular camera if not available
 try:
     from picamera2 import Picamera2
@@ -332,7 +334,7 @@ class HybridParkingDetector:
         pixel_ratio = pixel_count / mask_area
 
         # Decision: occupied if combined pixel ratio exceeds threshold
-        is_occupied = pixel_ratio > 0.28
+        is_occupied = pixel_ratio > OCCUPATION_THRESHOLD
 
         return is_occupied
 
