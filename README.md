@@ -27,8 +27,9 @@ The goal is to build an automated parking management system for a Raspberry Pi�
   - [Verify Tesseract Installation](#verify-tesseract-installation)
 - [License Plate Recognition (`car_plate.py`)](#license-plate-recognition-car_platepy)
   - [Example Usage](#example-usage)
-- [Parking Space Occupancy Detection (`parking_space_det.py`)](#parking-space-occupancy-detectionparking_space_detpy)
+- [Parking Space Occupancy Detection (`parking_detector.py`)](#parking-space-occupancy-detectionparking_space_detpy)
   - [Example Usage](#example-usage-1)
+- [Server](#server)
 
 ---
 
@@ -36,22 +37,64 @@ The goal is to build an automated parking management system for a Raspberry Pi�
 
 ## Project Background
 
-Since we did not receive the correct **camera adapter cable** for the **Raspberry Pi 5**, testing was performed using **recorded videos and sample images**.  
-
-In the final version:
-- **One camera** will take pictures of cars entering through the **entry gate** to read their **license plates**.
-- **Other cameras** will monitor **parking space occupancy** to detect which spaces are free or occupied.
+ParkingPal is a real-time parking management system that integrates computer vision-based parking space detection with a web interface for monitoring and session management.
 
 ---
 
 ## Project Structure
 ```bash
 .
-├── car_plate.py # License plate detection and OCR
-├── parking_space_det.py # Parking space occupancy detection
-├── requirements.txt # Python dependencies
-├── images/ or videos/ # Test images and videos
-└── README.md
+├── README.md
+├── edge_device   # Directory with code for edge devices 
+│   └── car_plate.py    # License plate detection and OCR
+│   └── parking_detector.py    # Parking space occupancy detection
+│   └── test_videos   # Videos that could be used for testing
+│       ├── entry.mp4
+│       ├── exit.mp4
+│       └── parking_uia.mp4
+├── requirements.txt    # Python dependencies
+└── server    # Flask server
+    ├── config.py
+    ├── instance
+    │   └── app.db # application database
+    ├── main.py
+    ├── parkingpal
+    │   ├── __init__.py
+    │   ├── blueprints
+    │   │   ├── __init__.py
+    │   │   ├── admin
+    │   │   │   ├── __init__.py
+    │   │   │   └── routes.py
+    │   │   ├── api   # api endpoint for edge devices
+    │   │   │   ├── __init__.py
+    │   │   │   ├── cameras.py  # camera configs, snapshots, get available monitoring cameras 
+    │   │   │   ├── parking_sessions.py   # receive hashed plate number with entry and leave timestamp 
+    │   │   │   └── parking_spaces.py   # get polygon (ROI) from the server, updated parking space availability, get status
+    │   │   ├── auth
+    │   │   │   ├── __init__.py
+    │   │   │   └── routes.py
+    │   │   └── user
+    │   │       ├── __init__.py
+    │   │       └── routes.py
+    │   ├── extensions.py
+    │   ├── models    # database models
+    │   │   ├── __init__.py
+    │   │   ├── camera_config.py
+    │   │   ├── parking_session.py
+    │   │   ├── parking_space.py
+    │   │   └── user.py
+    │   ├── static
+    │   │   └── images
+    │   ├── templates   # HTML templates
+    │   │   ├── admin.html
+    │   │   ├── base.html
+    │   │   ├── dashboard.html
+    │   │   ├── login.html
+    │   │   ├── parking_session.html
+    │   │   └── register.html
+    │   └── utils.py
+    └── run.py    # Entry point for running the server
+
 ```
 
 ---
@@ -75,6 +118,27 @@ In the final version:
     ```bash
     pip install -r requirements.txt 
   ```
+
+### Raspberry Pi camera
+The current setup was tested on Raspberry Pi 5B with 4GB memory storage and Raspberry Pi Camera Module 3 Wide.
+It may have some issues on earlier versions of Raspberry and may not work with earlier versions of camera.  
+
+The ```requirements.txt``` includes picamera2 package, this should be enough to run code in ```edge_device``` directory.
+If that did not work follow the official Raspberry manual for installing dependencies:
+https://datasheets.raspberrypi.com/camera/picamera2-manual.pdf
+
+https://www.raspberrypi.com/documentation/computers/camera_software.html#rpicam-apps
+
+
+However, in some cases that might not be enough, you may that clone and build ```libcam``` on your raspberry. 
+Raspberry provides their own fork: 
+https://github.com/raspberrypi/libcamera
+
+These steps might resolve most of the issues. 
+If you still run on some issues you can as well run edge device code on other platforms, the code uses the ```open-cv```
+video capture, just do **NOT**  include ```--picamera``` flag when running the script. 
+You can as well provide video file as source then you do not need to use web camera at all.  
+
 
 ### Download and Install Tesseract-OCR
 
@@ -123,61 +187,179 @@ After adding Tesseract to our environment variables, open a terminal (or Command
   tesseract --version
 ```
 
-## License Plate Recognition (`car_plate.py`)
+## License Plate Recognition (`edge_device/car_plate.py`)
 
 This script:
-- Loads an image of a car.
 - Detects rectangular contours that resemble license plates.
 - Crops the detected plate.
 - Uses **Tesseract OCR** to extract the text.
 
 
 ### Example usage
-
+On Windows
 ```bash
-python3 car_plate.py
-```
+# Using webcam
+python car_plate.py --camera-id CAM_ENTRANCE_01 --role entrance --server http://localhost:5000
 
-## Parking Space Occupancy Detection(`parking_space_det.py`)
+# Using video file
+python car_plate.py --source entry.mp4 --role entrance
+```
+On Raspberry Pi (Picamera2)
+```bash
+python car_plate.py --camera-id CAM_ENTRANCE_01 --role entrance --picamera --server http://192.168.1.100:5000
+```
+#### Flags
+`--camera-id`
+Unique ID for the camera. Example: CAM_ENTRANCE_01.
+
+`--role`
+Defines the camera’s purpose.
+Options: entrance or exit.
+
+`--server`
+URL of the backend server that receives the detections with `http://`.
+
+`--source`
+Video input.
+0 = default webcam
+Or path to a video file.
+
+`--picamera`
+Enables Raspberry Pi Picamera2 instead of a normal webcam.
+
+## Parking Space Occupancy Detection(`edge_device/parking_api.py`)
 
 
 
 This script:
 - Uses background subtraction and edge detection to detect motion or car presence.
 
-- Allows you to interactively define parking spaces on the first frame.
-
-- Saves parking area positions in parking_positions.pkl.
-
 - Detects occupied vs. free spaces in real time.
 
 ### Example usage
-
+Uses default webcam, default camera ID, and local server.
 ```bash
-python parking_space_det.py
+python parking_api.py
 ```
 
-Then a new window will open where you can add or remove paring spaces using 4 dots.
-A simple interactions will be printed to console 
-Example
+Set camera id, source video and server to send data to
 ```bash
-Loaded 12 parking spaces
-
-=== Parking Space Setup Mode ===
-LEFT CLICK to add points (4 points per space)
-Points should be in order: top-left, top-right, bottom-right, bottom-left
-LEFT CLICK to cancel current drawing
-CLICK on existing space to REMOVE it
-Press 's' to SAVE and 'q' to QUIT setup
-================================
+python3 parking_detector.py  --camera-id CAM_EAST_WING --source test_videos/parking_uia.mp4 --server http://192.168.0.50:5000
 ```
-**Set up mode**
-<img width="2367" height="1335" alt="image" src="https://github.com/user-attachments/assets/5c48d7e4-6d60-4307-a41b-70c5935fd0ea" />
 
-After you finish the setup click "s" to save and "q" to quit the set up mode then the two windos may appear one with the mask that uses edge detection and background substraction and the second may obser below:
-**Mask**
-<img width="2542" height="1380" alt="image" src="https://github.com/user-attachments/assets/14f497f4-93e4-45e1-a0b4-61fdf635605d" />
-**Result**
-<img width="2407" height="1319" alt="image" src="https://github.com/user-attachments/assets/9acda549-757f-448f-81d1-8025f0ff47c9" />
+Set camera id, uses picamera and server to send data to
+```bash
+python3 parking_detector.py  --camera-id CAM_EAST_WING --picamera --server http://192.168.0.50:5000
+```
 
+You can as well adjust the default values in the code directly, you will found it at the end of the file
+```python
+# Create detector
+detector = HybridParkingDetector(
+    camera_id=args.camera_id, # string
+    video_source=video_source, # 0 or path to video file
+    use_picamera=args.picamera, # True or False
+    server_url=args.server, # string
+    snapshot_interval=args.snapshot_interval, # integer
+    config_check_interval=args.config_interval # integer
+    )
+```
+
+The code have threshold that can be adjusted depending on the environment.
+```python
+OCCUPATION_THRESHOLD = 0.28
+```
+
+
+#### Command-line flags
+`--camera-id`
+Unique identifier for this camera.
+Used so the server knows which parking lot the data belongs to.
+Default: CAM_PARKING_01
+
+`--server` URL of the backend server that receives snapshots and space status.
+Default: http://localhost:5000
+
+`--source`
+Video input.
+0 → default webcam
+Or path to a video file (e.g. /home/pi/video.mp4)
+
+`--picamera`
+Enables the Raspberry Pi Picamera2 instead of USB webcam.
+Works only if Picamera2 is installed.
+
+`--snapshot-interval`
+How often (in seconds) a frame is uploaded to the server for monitoring (admin UI).
+Default: 10
+
+`--config-interval`
+How often (in seconds) the camera fetches updated parking-space polygons from the server.
+Default: 5
+
+## Server
+Move to `server/` directory:
+```bash
+cd server/
+```
+
+Start the server
+```bash
+python run.py
+```
+
+The server runs on `localhost:5000`
+
+you can access admin panel with following credentials on `/admin`
+```python
+admin_user = User(
+    username='admin',
+    email='admin@example.com',
+    password=hash_password('Password1.'),
+    is_admin=True
+)
+```
+
+
+### Dashboard (`/dashboard`)
+
+Purpose: Real-time parking lot overview
+Features:
+
+- Live statistics (total spaces, available, occupied)
+- Visual grid showing each parking space status
+- Color-coded spaces: green (available), orange (occupied)
+- Auto-refresh every 3 seconds
+- Animated transitions when space status changes
+
+
+Access: Login required
+
+### Parking Session Retrieval (`/parking-session`)
+
+Purpose: View parking session details by license plate
+Features:
+
+- Enter license plate number to lookup session
+- Displays entry time, exit time, and duration
+- Shows "Still Active" for ongoing sessions (no exit time)
+- Automatically deletes completed sessions after retrieval
+- Active sessions remain in database for future lookup
+
+
+Access: Login required
+
+### Admin Interface (`/admin`)
+
+Purpose: Configure parking space detection zones
+Features:
+
+- View live camera snapshots from detection systems
+- Draw polygons to define parking space boundaries
+- Assign space numbers manually
+- Save configuration to camera devices
+- Multi-camera support
+
+
+Access: Admin privileges required
 

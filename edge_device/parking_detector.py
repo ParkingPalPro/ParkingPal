@@ -527,7 +527,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Hybrid web-managed parking detector')
     parser.add_argument('--camera-id', default='CAM_PARKING_01', help='Camera identifier')
-    parser.add_argument('--server', default='http://192.168.137.1:5000', help='Server URL')
+    parser.add_argument('--server', default='http://localhost:5000', help='Server URL')
     parser.add_argument('--source', default=0, help='Video source (0 for webcam, or video file path)')
     parser.add_argument('--picamera', action='store_true', help='Use Raspberry Pi camera')
     parser.add_argument('--snapshot-interval', type=int, default=10, help='Snapshot upload interval (seconds)')
