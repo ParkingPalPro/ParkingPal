@@ -486,8 +486,7 @@ class HybridParkingDetector:
 
                 # Draw results
                 result = self.draw_spaces(frame, occupied_ids, free_ids)
-                result = cv2.resize(result, (420, int(frame.shape[0] * (420 / frame.shape[1]))))
-                combined_frame = cv2.resize(combined_frame, (420, int(frame.shape[0] * (420 / frame.shape[1]))))
+                result = cv2.resize(result, (720, int(frame.shape[0] * (720 / frame.shape[1]))))
 
                 # Display
                 cv2.imshow(f'Parking Detector - {self.camera_id}', result)
@@ -496,6 +495,7 @@ class HybridParkingDetector:
                 #if bg_mask is not None:
                 #    cv2.imshow('Background Subtraction', bg_mask)
                 if combined_frame is not None:
+                    combined_frame = cv2.resize(combined_frame, (720, int(frame.shape[0] * (720 / frame.shape[1]))))
                     cv2.imshow('Combined (Edge OR BG)', combined_frame)
 
                 # Handle keyboard input

@@ -284,10 +284,10 @@ Uses default webcam, default camera ID, and local server.
 ```bash
 python parking_api.py
 ```
-
+Please ensure you are running the server first and raspberry pi can access it. The detection will not work without config from the server.
 Set camera id, source video and server to send data to
 ```bash
-python3 parking_detector.py  --camera-id CAM_EAST_WING --source test_videos/parking_uia.mp4 --server http://192.168.0.50:5000
+python3 parking_detector.py  --camera-id CAM_EAST_WING --source ./test_videos/parking_uia.mp4 --server http://192.168.0.50:5000
 ```
 
 Set camera id, uses picamera and server to send data to
@@ -353,7 +353,7 @@ python run.py
 
 The server runs on `localhost:5000`
 
-you can access admin panel with following credentials on `/admin`
+you can access the admin panel with the following credentials on `/admin`
 ```python
 admin_user = User(
     username='admin',
@@ -362,6 +362,7 @@ admin_user = User(
     is_admin=True
 )
 ```
+When the monitoring camera is connected to the server, it sends snapshots to the server. You can create or adjust existing ROI polygons from the admin panel.
 
 
 ### Dashboard (`/dashboard`)
