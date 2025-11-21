@@ -107,17 +107,60 @@ ParkingPal is a real-time parking management system that integrates computer vis
   ```bash
   cd ParkingPal/
   ```
+- Update system (Raspberry pi)
+    ```bash
+    sudo apt update 
+    sudo apt full-upgrade
+    ```
+- Install global dependencies (Raspberry pi)
+    ```bash
+    sudo apt install -y python3-picamera2 --no-install-recommends
+    ```
+    ```bash
+    sudo apt install -y python3-picamera2
+    ```
+- Test if installed correctly (Raspberry pi)
+    ```bash
+    python3 -c "from picamera2 import Picamera2; print('Picamera2 OK')"
+    ```
+  Should print Picamera2 OK, if not try fix the installation with `sudo apt remove -y` and `sudo apt --fix-broken install -y`
+
 - Create virtual environment (recommended)
     ```bash
-    python -m venv venv
-    source venv/bin/activate      # Linux / macOS
-    venv\Scripts\activate         # Windows
+    python -m venv .venv --system-site-packages
+    source .venv/bin/activate      # Linux / macOS
+    .venv\Scripts\activate         # Windows
     ```
   
 - Install dependencies
     ```bash
     pip install -r requirements.txt 
   ```
+- If you on other system then Raspberry you may install numpy as well
+    ```bash
+    pip install numpy
+    ```
+
+### Raspberry Pi camera
+The current setup was tested on Raspberry Pi 5B with 4GB memory storage and Raspberry Pi Camera Module 3 Wide.
+It may have some issues on earlier versions of Raspberry and may not work with earlier versions of camera.  
+
+If you installed all this should be enough to run code in ```edge_device``` directory.
+If that did not work follow the official Raspberry manual for installing dependencies:
+https://datasheets.raspberrypi.com/camera/picamera2-manual.pdf
+
+https://www.raspberrypi.com/documentation/computers/camera_software.html#rpicam-apps
+
+
+However, in some cases that might not be enough, you may that clone and build ```libcam``` on your raspberry. 
+Raspberry provides their own fork: 
+https://github.com/raspberrypi/libcamera
+
+These steps might resolve most of the issues. 
+If you still run on some issues you can as well run edge device code on other platforms, the code uses the ```open-cv```
+video capture, just do **NOT**  include ```--picamera``` flag when running the script. 
+You can as well provide video file as source then you do not need to use web camera at all.  
+
 
 ### Raspberry Pi camera
 The current setup was tested on Raspberry Pi 5B with 4GB memory storage and Raspberry Pi Camera Module 3 Wide.
