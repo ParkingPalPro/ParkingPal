@@ -364,6 +364,25 @@ admin_user = User(
 ```
 When the monitoring camera is connected to the server, it sends snapshots to the server. You can create or adjust existing ROI polygons from the admin panel.
 
+### Admin Interface (`/admin`)
+
+Purpose: Configure parking space detection zones
+Features:
+
+- View live camera snapshots from detection systems
+- Draw polygons to define parking space boundaries
+- Assign space numbers manually
+- Save configuration to camera devices
+- Multi-camera support
+
+
+Access: Admin privileges required
+
+<img width="720" alt="image" src="https://github.com/user-attachments/assets/bdaabbea-88f1-460c-938d-12b99a2940f2" />
+<img width="720" alt="image" src="https://github.com/user-attachments/assets/c9bc2f63-05c0-44ae-85a6-e5eb8302b6b3" />
+<img width="720" alt="image" src="https://github.com/user-attachments/assets/f28b8919-5719-479a-9cdc-3cfeb7fae0db" />
+
+
 
 ### Dashboard (`/dashboard`)
 
@@ -379,6 +398,9 @@ Features:
 
 Access: Login required
 
+<img width="720" alt="image" src="https://github.com/user-attachments/assets/0a9e6373-e756-4b6a-95a8-9de010cc1772" />
+
+
 ### Parking Session Retrieval (`/parking-session`)
 
 Purpose: View parking session details by license plate
@@ -392,18 +414,6 @@ Features:
 
 
 Access: Login required
+<img width="720" alt="image" src="https://github.com/user-attachments/assets/2b8dc8a1-5dd6-4d17-a409-79f8b6346d4a" />
 
-### Admin Interface (`/admin`)
-
-Purpose: Configure parking space detection zones
-Features:
-
-- View live camera snapshots from detection systems
-- Draw polygons to define parking space boundaries
-- Assign space numbers manually
-- Save configuration to camera devices
-- Multi-camera support
-
-
-Access: Admin privileges required
 
