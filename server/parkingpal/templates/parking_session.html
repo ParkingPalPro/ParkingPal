@@ -281,7 +281,7 @@
                     type="text" 
                     id="plateNumber" 
                     name="plate_number" 
-                    placeholder="ABC-1234"
+                    placeholder="ABC1234"
                     required
                     autocomplete="off"
                     maxlength="15"
@@ -360,7 +360,7 @@
 
             if (result.success) {
                 displayResults(result.data);
-                showAlert(result.data.message, 'success');
+                showAlert(result.message, 'success');
                 form.reset();
             } else {
                 showAlert(result.message || 'Session not found', 'error');
