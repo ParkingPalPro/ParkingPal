@@ -81,7 +81,7 @@ class HybridParkingDetector:
         try:
             self.picam2 = Picamera2()
             config = self.picam2.create_preview_configuration(
-                main={"format": 'RGB888', "size": (1920, 1080)},
+                main={"format": 'BGR888', "size": (1920, 1080)},
                 controls={"FrameRate": 30}
             )
             self.picam2.configure(config)
@@ -527,8 +527,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Hybrid web-managed parking detector')
     parser.add_argument('--camera-id', default='CAM_PARKING_01', help='Camera identifier')
-    parser.add_argument('--server', default='http://localhost:5000', help='Server URL')
-    parser.add_argument('--source', default='../edge_device/test_videos/parking_uia.mp4', help='Video source (0 for webcam, or video file path)')
+    parser.add_argument('--server', default='http://192.168.137.1:5000', help='Server URL')
+    parser.add_argument('--source', default=0, help='Video source (0 for webcam, or video file path)')
     parser.add_argument('--picamera', action='store_true', help='Use Raspberry Pi camera')
     parser.add_argument('--snapshot-interval', type=int, default=10, help='Snapshot upload interval (seconds)')
     parser.add_argument('--config-interval', type=int, default=5, help='Config check interval (seconds)')
